@@ -8,7 +8,7 @@ const func = {
 export function init (appConfig) {
   Object.keys(appConfig.windowShortcuts).forEach(funcName => {
     if (appConfig.windowShortcuts[funcName].enable) {
-      Mousetrap.bind(appConfig.windowShortcuts[funcName].key, func[funcName])
+      Mousetrap.bind(appConfig.windowShortcuts[funcName].key.toLowerCase(), func[funcName])
     }
   })
 }

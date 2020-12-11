@@ -1,10 +1,10 @@
-import { Menu, Tray, nativeImage } from 'electron'
+import { Menu, nativeImage, Tray } from 'electron'
 import { appConfig$ } from './data'
 import * as handler from './tray-handler'
 import { checkUpdate } from './updater'
 import { groupConfigs } from '../shared/utils'
-import { isMac, isWin, isOldMacVersion } from '../shared/env'
-import { disabledTray, enabledTray, enabledHighlightTray, pacTray, pacHighlightTray, globalTray, globalHighlightTray } from '../shared/icon'
+import { isMac, isOldMacVersion, isWin } from '../shared/env'
+import { disabledTray, enabledHighlightTray, enabledTray, globalHighlightTray, globalTray, pacHighlightTray, pacTray } from '../shared/icon'
 
 let tray
 
@@ -55,7 +55,10 @@ function generateConfigSubmenus (configs, selectedIndex) {
 function generateMenus (appConfig) {
   const base = [
     { label: '主界面', click: handler.showManagePanel },
-    { label: '开启应用', type: 'checkbox', checked: appConfig.enable, click: handler.toggleEnable },
+    { label: '开启应用', type: 'checkbox', checked: appConfig.enable, click: () => {
+      handler.toggleEnable()
+      handler.toggleProxy(appConfig.sysProxyMode)
+    } },
     { label: 'PAC', submenu: [
       { label: '更新PAC', click: handler.updatePac }
     ] },
@@ -64,7 +67,7 @@ function generateMenus (appConfig) {
     { label: '配置', submenu: [
       { label: '选项设置...', click: handler.showOptions },
       { label: '导入gui-config.json文件', click: handler.importConfigFromFile },
-      { label: '导出gui-confi.gjson文件', click: handler.exportConfigToFile },
+      { label: '导出gui-config.json文件', click: handler.exportConfigToFile },
       { label: '从剪贴板批量导入ssr://地址', click: handler.importConfigFromClipboard },
       { label: '打开配置文件', click: handler.openConfigFile }
     ] },
@@ -72,9 +75,9 @@ function generateMenus (appConfig) {
     { label: '帮助', submenu: [
       { label: '检查更新', click: () => checkUpdate(true) },
       { label: '查看日志', click: handler.openLog },
-      { label: '项目主页', click: () => { handler.openURL('https://github.com/erguotou520/electron-ssr') } },
-      { label: 'Bug反馈', click: () => { handler.openURL('https://github.com/erguotou520/electron-ssr/issues') } },
-      { label: '捐赠', click: () => { handler.openURL('https://github.com/erguotou520/donate') } },
+      // { label: '项目主页', click: () => { handler.openURL('https://github.com/shadowsocksrr/electron-ssr') } },
+      // { label: 'Bug反馈', click: () => { handler.openURL('https://github.com/shadowsocksrr/electron-ssr/issues') } },
+      // { label: '捐赠', click: () => { handler.openURL('https://github.com/erguotou520/donate') } },
       { label: '打开开发者工具', click: handler.openDevtool }
     ] },
     { label: '退出', click: handler.exitApp }

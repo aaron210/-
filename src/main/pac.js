@@ -23,8 +23,8 @@ export async function downloadPac (force = false) {
   await bootstrapPromise
   const pacExisted = await pathExists(pacPath)
   if (force || !pacExisted) {
-    logger.info('start download pac')
-    const pac = await request('https://raw.githubusercontent.com/erguotou520/pac.txt/pac/pac.txt')
+    logger.debug('start download pac')
+    const pac = await request('https://raw.githubusercontent.com/shadowsocksrr/pac.txt/pac/pac.txt')
     pacContent = pac
     return await writeFile(pacPath, pac)
   }

@@ -5,7 +5,8 @@
 import { execSync } from 'child_process'
 import { pathExistsSync } from 'fs-extra'
 import { winToolPath, macToolPath } from './bootstrap'
-import { currentConfig, appConfig$ } from './data'
+import { currentConfig, appConfig$, updateAppConfig } from './data'
+import logger from './logger'
 import { isWin, isMac, isLinux, isOldMacVersion } from '../shared/env'
 
 // linux的gsettings命令是否可用
@@ -22,7 +23,11 @@ let isProxyChanged = false
 function runCommand (command) {
   if (command) {
     isProxyChanged = true
-    execSync(command)
+    try {
+      execSync(command)
+    } catch (error) {
+      logger.error(error)
+    }
   }
 }
 
@@ -59,7 +64,7 @@ export function setProxyToGlobal (host, port) {
 }
 
 /**
- * 设置代理为全局
+ * 设置代理为PAC代理
  */
 export function setProxyToPac (pacUrl) {
   let command
@@ -73,11 +78,7 @@ export function setProxyToPac (pacUrl) {
   runCommand(command)
 }
 
-// 启用代理
-export function startProxy (mode) {
-  if (mode === undefined) {
-    mode = currentConfig.sysProxyMode
-  }
+function setProxyByMode (mode) {
   if (mode === 0) {
     setProxyToNone()
   } else if (mode === 1) {
@@ -85,6 +86,23 @@ export function startProxy (mode) {
   } else if (mode === 2) {
     setProxyToGlobal('127.0.0.1', currentConfig.localPort)
   }
+}
+
+/**
+ * 切换系统代理
+ */
+export function switchSystemProxy () {
+  const nextMode = (currentConfig.sysProxyMode + 1) % 3
+  updateAppConfig({ sysProxyMode: nextMode })
+  setProxyByMode(nextMode)
+}
+
+// 启用代理
+export function startProxy (mode) {
+  if (mode === undefined) {
+    mode = currentConfig.sysProxyMode
+  }
+  setProxyByMode(mode)
 }
 
 // 监听配置变化

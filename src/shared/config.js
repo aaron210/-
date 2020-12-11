@@ -1,4 +1,5 @@
 import { isLinux } from './env'
+
 const defaultConfig = {
   // 配置集合
   configs: [],
@@ -12,7 +13,7 @@ const defaultConfig = {
   shareOverLan: false,
   // 本地socks端口
   localPort: 1080,
-  // 本地ss-local路径
+  // 本地ssr目录
   ssrPath: '',
   // pac端口号
   pacPort: 2333,
@@ -27,6 +28,10 @@ const defaultConfig = {
     toggleWindow: {
       key: isLinux ? 'Ctrl+Shift+W' : '',
       enable: isLinux
+    },
+    switchSystemProxy: {
+      key: '',
+      enable: false
     }
   },
   // 窗口快捷键

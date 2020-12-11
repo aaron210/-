@@ -1,5 +1,4 @@
 import { app, ipcMain, dialog } from 'electron'
-import os from 'os'
 import { readJsonSync } from 'fs-extra'
 import downloadGitRepo from 'download-git-repo'
 import * as events from '../shared/events'
@@ -41,10 +40,10 @@ ipcMain.on(events.EVENT_APP_HIDE_WINDOW, () => {
   updateAppConfig(data, true)
 }).on(events.EVENT_SSR_DOWNLOAD_RENDERER, e => {
   // 下载ssr
-  logger.info('start download ssr')
+  logger.info('start download ssrr')
   // 自动下载ssr项目
-  downloadGitRepo(`erguotou520/ssr-libev-ci#${os.platform()}`, defaultSSRDownloadDir, err => {
-    logger[err ? 'error' : 'info'](`ssr download ${err ? 'error' : 'success'}`)
+  downloadGitRepo(`shadowsocksrr/shadowsocksr#akkariiin/master`, defaultSSRDownloadDir, err => {
+    logger[err ? 'error' : 'info'](`ssrr download ${err ? 'error' : 'success'}`)
     e.sender.send(events.EVENT_SSR_DOWNLOAD_MAIN, err ? err.message : null)
   })
 }).on(events.EVENT_CONFIG_COPY_CLIPBOARD, () => {
@@ -57,8 +56,9 @@ ipcMain.on(events.EVENT_APP_HIDE_WINDOW, () => {
 }).on(events.EVENT_APP_TOGGLE_MENU, () => {
   // 切换menu显示
   toggleMenu()
-}).on(events.EVENT_APP_OPEN_DIALOG, (e, params) => {
-  e.returnValue = dialog.showOpenDialog(params)
+}).on(events.EVENT_APP_OPEN_DIALOG, async (e, params) => {
+  const ret = await dialog.showOpenDialog(params)
+  e.returnValue = ret.filePaths
 })
 
 /**

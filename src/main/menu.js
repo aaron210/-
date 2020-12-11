@@ -52,15 +52,15 @@ export default function renderMenu (appConfig) {
         ] },
         { label: '配置', submenu: [
           { label: '导入gui-config.json文件', click: handler.importConfigFromFile },
-          { label: '导出gui-confi.gjson文件', click: handler.exportConfigToFile },
+          { label: '导出gui-config.json文件', click: handler.exportConfigToFile },
           { label: '打开配置文件', click: handler.openConfigFile }
         ] },
         { label: '帮助', submenu: [
           { label: '检查更新', click: () => checkUpdate(true) },
           { label: '查看日志', click: handler.openLog },
-          { label: '项目主页', click: () => { handler.openURL('https://github.com/erguotou520/electron-ssr') } },
-          { label: 'Bug反馈', click: () => { handler.openURL('https://github.com/erguotou520/electron-ssr/issues') } },
-          { label: '捐赠', click: () => { handler.openURL('https://github.com/erguotou520/donate') } },
+          // { label: '项目主页', click: () => { handler.openURL('https://github.com/shadowsocksrr/electron-ssr') } },
+          // { label: 'Bug反馈', click: () => { handler.openURL('https://github.com/shadowsocksrr/electron-ssr/issues') } },
+          // { label: '捐赠', click: () => { handler.openURL('https://github.com/erguotou520/donate') } },
           { label: '打开开发者工具', click: handler.openDevtool }
         ] }
       ]

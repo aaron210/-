@@ -1,10 +1,10 @@
 import path from 'path'
-import { app } from 'electron'
+import { app, dialog } from 'electron'
 import { ensureDir, pathExists, outputJson } from 'fs-extra'
 import logger from './logger'
 import sudo from 'sudo-prompt'
 import defaultConfig from '../shared/config'
-import { isWin, isMac, isLinux, isOldMacVersion } from '../shared/env'
+import { isWin, isMac, isLinux, isOldMacVersion, isPythonInstalled } from '../shared/env'
 import { init as initIcon } from '../shared/icon'
 
 // app ready事件
@@ -15,6 +15,15 @@ export const readyPromise = new Promise(resolve => {
     app.once('ready', resolve)
   }
 })
+
+// 检查python是否安装
+if (!isPythonInstalled) {
+  dialog.showErrorBox('警告', '未检测到python' +
+    '\n本程序所使用的后端为python版ssr/ssrr' +
+    '\n请确保已安装python且可正常使用，否则软件可能无法正常运行')
+  // python未安装时自动下载并安装
+  // require('./python').init()
+}
 
 /**
  * Set `__static` path to static files in production
