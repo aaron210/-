@@ -1,8 +1,7 @@
-import fs from 'fs'
+import { pathExists } from 'fs-extra'
+import path from 'path'
 import { net } from 'electron'
 import Base64 from 'urlsafe-base64'
-import { execSync } from 'child_process'
-import { isWin } from './env'
 import { loadConfigsFromString } from './ssr'
 
 const STRING_PROTOTYPE = '[object String]'
@@ -71,13 +70,10 @@ export function merge (to, ...origins) {
       const value = from[key]
       // Just merge existed property in origin data
       if (to[key] !== undefined) {
-        switch (protoString(value)) {
-          case OBJECT_PROTOTYPE:
-            merge(to[key], value)
-            break
-          default:
-            to[key] = value
-            break
+        if (protoString(value) === OBJECT_PROTOTYPE) {
+          merge(to[key], value)
+        } else {
+          to[key] = value
         }
       }
     }
@@ -121,23 +117,24 @@ export function configMerge (to, from, appendArray = false) {
  * @param {Object} appConfig 当前的应用配置
  * @param {Object} targetConfig 新的应用配置
  */
-export function getUpdatedKeys (appConfig, targetConfig) {
+export function getUpdatedKeys (appConfig = {}, targetConfig) {
   return Object.keys(targetConfig).filter(key => {
     // 如果原对象类型和新的类型不一致直接返回true
-    if (protoString(appConfig[key]) !== protoString(value)) {
+    const value = targetConfig[key]
+    const oldValue = appConfig[key]
+    if (protoString(oldValue) !== protoString(value)) {
       return true
     }
-    const value = targetConfig[key]
     switch (protoString(value)) {
       case OBJECT_PROTOTYPE:
-        return getUpdatedKeys(appConfig[key], value).length
+        return getUpdatedKeys(oldValue, value).length
       case ARRAY_PROTOTYPE:
-        if (appConfig[key] === value) {
+        if (oldValue === value) {
           return false
         }
-        return appConfig[key].length !== value.length || appConfig[key].some((item, index) => getUpdatedKeys(item, value[index]).length > 0)
+        return oldValue.length !== value.length || oldValue.some((item, index) => getUpdatedKeys(item, value[index]).length > 0)
       default:
-        return appConfig[key] !== value
+        return oldValue !== value
     }
   })
 }
@@ -230,38 +227,18 @@ export function groupConfigs (configs, selectedIndex) {
     }
   })
   if (ungrouped.length) {
-    groups['未分组'] = ungrouped
+    groups['$ungrouped$'] = ungrouped
   }
   return groups
 }
 
 /**
  * 判断选择的local.py的路径是否正确
- * @param {*String} path local.py所在的目录
+ * @param {string} folderPath local.py所在的目录
  */
-export function isSSRPathAvaliable (ssrPath) {
-  if (!isWin) {
-    if (!/ss-local$/.test(ssrPath)) {
-      return false
-    }
-  } else {
-    if (!/ss-local.exe$/.test(ssrPath)) {
-      return false
-    }
-  }
-  return fs.existsSync(ssrPath)
-}
-
-/**
- * 获取ss-local版本
- */
-export function getSSRVersion (ssrPath) {
-  try {
-    const helpInfo = execSync(`${ssrPath} -h`).toString()
-    return /^shadowsocks-libev (\d+.\d+.\d) /.exec(helpInfo)[1]
-  } catch (e) {
-    return ''
-  }
+export function isSSRPathAvaliable (folderPath) {
+  const localPyPath = path.join(folderPath, 'local.py')
+  return pathExists(localPyPath)
 }
 
 export function somePromise (promiseArr) {
@@ -271,7 +248,7 @@ export function somePromise (promiseArr) {
       p.then(resolve).catch(() => {
         count++
         if (count === promiseArr.length) {
-          reject()
+          reject(new Error('Error Occurred!'))
         }
       })
     }
@@ -326,8 +303,15 @@ export function isSubscribeContentValid (content) {
   if (!configs.length) {
     return [false]
   } else {
-    const group = configs[0].group
-    const inOneGroup = configs.slice(1).every(config => config.group === group)
-    return [inOneGroup, inOneGroup ? configs : []]
+    const groupConfigs = {}
+    configs.forEach(config => {
+      if (groupConfigs.hasOwnProperty(config.group)) {
+        groupConfigs[config.group].push(config)
+      } else {
+        groupConfigs[config.group] = [config]
+      }
+    })
+    const groupCount = Object.keys(groupConfigs).length
+    return [groupCount, groupCount > 0 ? groupConfigs : {}]
   }
 }

@@ -1,16 +1,14 @@
 import { app, ipcMain, dialog } from 'electron'
-import os from 'os'
-import { readJsonSync } from 'fs-extra'
+import { readJson } from 'fs-extra'
 import downloadGitRepo from 'download-git-repo'
-import * as events from '../shared/events'
+import * as events from '@/shared/events'
 import { appConfigPath, defaultSSRDownloadDir } from './bootstrap'
+import { saveUpdateTime } from './subscribe'
 import { updateAppConfig } from './data'
-import { hideWindow } from './window'
+import { hideWindow, sendData } from './window'
 import { importConfigFromClipboard } from './tray-handler'
-import defaultConfig, { mergeConfig } from '../shared/config'
+import defaultConfig, { mergeConfig } from '@/shared/config'
 import { showNotification } from './notification'
-import { sendData } from './window'
-import { toggleMenu } from './menu'
 import logger from './logger'
 
 /**
@@ -19,32 +17,32 @@ import logger from './logger'
 ipcMain.on(events.EVENT_APP_HIDE_WINDOW, () => {
   // 隐藏窗口
   hideWindow()
-}).on(events.EVENT_APP_WEB_INIT, e => {
+}).on(events.EVENT_APP_WEB_INIT, async (e) => {
   // 页面初始化
   let stored
   try {
-    stored = readJsonSync(appConfigPath)
+    stored = await readJson(appConfigPath)
     mergeConfig(stored)
-  } catch (e) {
+  } catch (error) {
     stored = defaultConfig
   }
-  e.returnValue = {
+  e.reply(events.EVENT_APP_WEB_INIT, {
     config: stored,
     meta: {
       version: app.getVersion(),
       defaultSSRDownloadDir
     }
-  }
+  })
 }).on(events.EVENT_RX_SYNC_RENDERER, (_, data) => {
   // 同步数据
-  logger.debug(`received sync data: ${data}`)
+  logger.debug(`received sync data: ${JSON.stringify(data, undefined, 4)}`)
   updateAppConfig(data, true)
 }).on(events.EVENT_SSR_DOWNLOAD_RENDERER, e => {
   // 下载ssr
-  logger.info('start download ssr')
+  logger.info('start download ssrr')
   // 自动下载ssr项目
-  downloadGitRepo(`erguotou520/ssr-libev-ci#${os.platform()}`, defaultSSRDownloadDir, err => {
-    logger[err ? 'error' : 'info'](`ssr download ${err ? 'error' : 'success'}`)
+  downloadGitRepo(`shadowsocksrr/shadowsocksr#akkariiin/master`, defaultSSRDownloadDir, err => {
+    logger[err ? 'error' : 'info'](`ssrr download ${err ? 'error' : 'success'}`)
     e.sender.send(events.EVENT_SSR_DOWNLOAD_MAIN, err ? err.message : null)
   })
 }).on(events.EVENT_CONFIG_COPY_CLIPBOARD, () => {
@@ -54,11 +52,12 @@ ipcMain.on(events.EVENT_APP_HIDE_WINDOW, () => {
 }).on(events.EVENT_APP_NOTIFY_RENDERER, (_, body, title) => {
   // 显示来自renderer进程的通知
   showNotification(body, title)
-}).on(events.EVENT_APP_TOGGLE_MENU, () => {
-  // 切换menu显示
-  toggleMenu()
-}).on(events.EVENT_APP_OPEN_DIALOG, (e, params) => {
-  e.returnValue = dialog.showOpenDialog(params)
+}).on(events.EVENT_APP_OPEN_DIALOG, async (e, params) => {
+  const ret = await dialog.showOpenDialog(params)
+  e.reply(events.EVENT_APP_OPEN_DIALOG, ret.filePaths)
+}).on(events.EVENT_SUBSCRIBE_SAVE_TIME, () => {
+  logger.debug('Saving Subsciption Update Time')
+  saveUpdateTime()
 })
 
 /**

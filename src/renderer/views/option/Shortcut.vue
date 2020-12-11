@@ -1,35 +1,19 @@
 <template>
   <div class="options-container px-2 pb-2 scroll-y">
     <i-form ref="form" class="mt-1" :model="form" :label-width="0">
-      <i-form-item>
+      <i-form-item v-for="(funcText,funcName) in globalShortcutMaps" :key="funcName">
         <i-row type="flex" :gutter="24">
-          <i-col :span="5">
-            <i-checkbox v-model="form.globalShortcuts.toggleWindow.enable"
-              @on-change="update('globalShortcuts', 'toggleWindow')">
-              切换窗口显隐
+          <i-col :span="6">
+            <i-checkbox v-model="form.globalShortcuts[funcName].enable"
+              @on-change="update('globalShortcuts', funcName)">
+              {{funcText}}
             </i-checkbox>
           </i-col>
-          <i-col :span="8">
-            <i-input v-model="form.globalShortcuts.toggleWindow.key"
-              readonly :disabled="!form.globalShortcuts.toggleWindow.enable"
-              @on-keydown="e=>keydown(e,'globalShortcuts', 'toggleWindow')"
-              @on-keyup="e=>keyup(e,'globalShortcuts', 'toggleWindow')"/>
-          </i-col>
-        </i-row>
-      </i-form-item>
-      <i-form-item v-if="isLinux" class="flex-1">
-        <i-row type="flex" :gutter="24">
-          <i-col :span="5">
-            <i-checkbox v-model="form.windowShortcuts.toggleMenu.enable"
-              @on-change="update('windowShortcuts', 'toggleMenu')">
-              切换窗口菜单显隐
-            </i-checkbox>
-          </i-col>
-          <i-col :span="8">
-            <i-input v-model="form.windowShortcuts.toggleMenu.key"
-              readonly :disabled="!form.windowShortcuts.toggleMenu.enable"
-              @on-keydown="e=>keydown(e,'windowShortcuts', 'toggleMenu')"
-              @on-keyup="e=>keyup(e,'windowShortcuts', 'toggleMenu')"/>
+          <i-col :span="6">
+            <i-input v-model="form.globalShortcuts[funcName].key"
+              readonly :disabled="!form.globalShortcuts[funcName].enable"
+              @on-keydown="e=>keydown(e,'globalShortcuts', funcName)"
+              @on-keyup="e=>keyup(e,'globalShortcuts', funcName)"/>
           </i-col>
         </i-row>
       </i-form-item>
@@ -39,9 +23,8 @@
 <script>
 import { remote } from 'electron'
 import { mapActions } from 'vuex'
-import { changeBind } from '../../shortcut'
-import { debounce } from '../../../shared/utils'
-import { isLinux } from '../../../shared/env'
+import { debounce } from '@/shared/utils'
+import { isLinux } from '@/shared/env'
 
 const globalShortcut = remote.globalShortcut
 
@@ -58,10 +41,18 @@ export default {
       actionKey: ''
     }
   },
+  computed: {
+    globalShortcutMaps () {
+      return {
+        toggleWindow: this.$t('UI_SETTING_SHORTCUT_TOGGLE_VISI'),
+        switchSystemProxy: this.$t('UI_SETTING_SHORTCUT_CHANGE_SYS_PROXY')
+      }
+    }
+  },
   methods: {
     ...mapActions(['updateConfig']),
     update: debounce(function (parent, field) {
-      this.updateConfig({ [parent]: { [field]: this.form[parent][field] }})
+      this.updateConfig({ [parent]: { [field]: this.form[parent][field] } })
     }, 1000),
     keydown: function (e) {
       e.preventDefault()
@@ -92,11 +83,7 @@ export default {
         // 全局快捷键的判断
         if (parent === 'globalShortcuts') {
           if (globalShortcut.isRegistered(shortcutStr)) {
-            return this.$message.error(`快捷键 ${shortcutStr} 已被注册，请更换`)
-          }
-        } else {
-          if (this.form[parent][field].key) {
-            changeBind(field, this.form[parent][field].key, shortcutStr)
+            return this.$message.error(this.$t('UI_SETTING_SHORTCUT_REGISTED', { shortcutStr }))
           }
         }
         this.form[parent][field].key = shortcutStr

@@ -1,20 +1,27 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
-import defaultConfig from '../../shared/config'
-import { merge, clone, request, isSubscribeContentValid, getUpdatedKeys, isConfigEqual, somePromise } from '../../shared/utils'
-import Config from '../../shared/ssr'
+import defaultConfig from '@/shared/config'
+import {
+  merge,
+  clone,
+  isSubscribeContentValid,
+  getUpdatedKeys,
+  isConfigEqual
+} from '@/shared/utils'
+import { defaultSSRConfig } from '@/shared/ssr'
 import { syncConfig } from '../ipc'
 import { STORE_KEY_FEATURE, STORE_KEY_SSR_METHODS, STORE_KEY_SSR_PROTOCOLS, STORE_KEY_SSR_OBFSES } from '../constants'
+import i18n from '@/renderer/i18n'
 Vue.use(Vuex)
 
 // 当前编辑的配置项
-const editingConfig = new Config()
+const editingConfig = defaultSSRConfig()
 // ssr config 有效key
 const configKeys = Object.keys(editingConfig)
 // 页面
 const views = ['Feature', 'Setup', 'ManagePanel', 'Options']
 // 编辑组的名称
-let groupTitleBak = ''
+// let groupTitleBak = ''
 // 功能页面是否已展示过
 const ls = window.localStorage
 const featureReaded = !!ls.getItem(STORE_KEY_FEATURE)
@@ -31,9 +38,29 @@ let obfses
 if (storedMethods) {
   methods = JSON.parse(storedMethods)
 } else {
-  methods = ['none', 'aes-128-cfb', 'aes-192-cfb', 'aes-256-cfb', 'aes-128-cfb8', 'aes-192-cfb8', 'aes-256-cfb8',
-    'aes-128-ctr', 'aes-192-ctr', 'aes-256-ctr', 'camellia-128-cfb', 'camellia-192-cfb', 'camellia-256-cfb',
-    'bf-cfb', 'rc4', 'rc4-md5', 'rc4-md5-6', 'salsa20', 'chacha20', 'chacha20-ietf'
+  methods = [
+    'none',
+    'aes-128-cfb',
+    'aes-192-cfb',
+    'aes-256-cfb',
+    'aes-128-cfb8',
+    'aes-192-cfb8',
+    'aes-256-cfb8',
+    'aes-128-ctr',
+    'aes-192-ctr',
+    'aes-256-ctr',
+    'camellia-128-cfb',
+    'camellia-192-cfb',
+    'camellia-256-cfb',
+    'bf-cfb',
+    'rc4',
+    'rc4-md5',
+    'rc4-md5-6',
+    'salsa20',
+    'xsalsa20',
+    'chacha20',
+    'xchacha20',
+    'chacha20-ietf'
   ]
   ls.setItem(STORE_KEY_SSR_METHODS, JSON.stringify(methods))
 }
@@ -41,8 +68,20 @@ if (storedMethods) {
 if (storedProtocols) {
   protocols = JSON.parse(storedProtocols)
 } else {
-  protocols = ['origin', 'verify_deflate', 'auth_sha1_v4', 'auth_aes128_md5',
-    'auth_aes128_sha1', 'auth_chain_a', 'auth_chain_b'
+  protocols = [
+    'origin',
+    'verify_deflate',
+    'auth_sha1_v4',
+    'auth_aes128_md5',
+    'auth_aes128_sha1',
+    'auth_chain_a',
+    'auth_chain_b',
+    'auth_chain_c',
+    'auth_chain_d',
+    'auth_chain_e',
+    'auth_chain_f',
+    'auth_akarin_rand',
+    'auth_akarin_spec_a'
   ]
   ls.setItem(STORE_KEY_SSR_PROTOCOLS, JSON.stringify(protocols))
 }
@@ -50,8 +89,23 @@ if (storedProtocols) {
 if (storedObfses) {
   obfses = JSON.parse(storedObfses)
 } else {
-  obfses = ['plain', 'http_simple', 'http_post', 'ramdom_head', 'tls1.2_ticket_auth', 'tls1.2_ticket_fastauth']
+  obfses = [
+    'plain',
+    'http_simple',
+    'http_post',
+    'ramdom_head',
+    'tls1.2_ticket_auth',
+    'tls1.2_ticket_fastauth'
+  ]
   ls.setItem(STORE_KEY_SSR_OBFSES, JSON.stringify(obfses))
+}
+
+function cloneConfig (config) {
+  return {
+    // (${config.server}:${config.server_port})
+    title: `${config.remarks || config.server}`,
+    ...config
+  }
 }
 
 export default new Vuex.Store({
@@ -69,8 +123,11 @@ export default new Vuex.Store({
     },
     editingConfig,
     // 备份当前选中的配置项
-    editingConfigBak: new Config(),
-    editingGroup: { show: false, title: '', updated: false },
+    editingConfigBak: {},
+    editingGroup: { show: false, title: '', updated: false, editingTitle: '' },
+    selection: {
+      selectedConfigId: ''
+    },
     methods,
     protocols,
     obfses
@@ -81,7 +138,9 @@ export default new Vuex.Store({
       const changed = getUpdatedKeys(state.appConfig, targetConfig)
       if (changed.length) {
         const extractConfig = {}
-        changed.forEach(key => { extractConfig[key] = targetConfig[key] })
+        changed.forEach(key => {
+          extractConfig[key] = targetConfig[key]
+        })
         merge(state.appConfig, extractConfig)
         console.log('config updated: ', extractConfig)
         if (sync) {
@@ -107,24 +166,33 @@ export default new Vuex.Store({
       state.view.page = views[views.indexOf(state.view.page) + 1]
     },
     // 设置选中的配置
-    setCurrentConfig (state, ssrConfig) {
+    setEditingConfig (state, ssrConfig) {
       merge(state.editingConfig, ssrConfig)
       merge(state.editingConfigBak, ssrConfig)
+    },
+    setSelectedConfigId (state, id) {
+      state.selection.selectedConfigId = id
     },
     // 更新编辑项备份
     updateEditingBak (state) {
       merge(state.editingConfigBak, state.editingConfig)
     },
+    updateEditingTitle (state, title) {
+      state.editingGroup.editingTitle = title
+    },
     // 重置状态
     resetState (state) {
       merge(state.editingConfig, state.editingConfigBak)
-      merge(state.view, { page: views.indexOf(state.view.page) >= 2 ? views[2] : state.view.page, tab: 'common', active: false })
-      state.editingGroup.title = groupTitleBak
+      merge(state.view, {
+        page: views.indexOf(state.view.page) >= 2 ? views[2] : state.view.page,
+        tab: 'common',
+        active: false
+      })
     },
     // 更新当前编辑的组
     updateEditingGroup (state, newGroup) {
       merge(state.editingGroup, newGroup)
-      groupTitleBak = newGroup.title
+      state.editingGroup.editingTitle = state.editingGroup.title
     },
     // 更新编辑项
     updateEditing (state, config) {
@@ -152,16 +220,22 @@ export default new Vuex.Store({
       }
       const initialSelected = config.configs[config.index]
       if (initialSelected) {
-        commit('setCurrentConfig', initialSelected)
+        commit('setEditingConfig', initialSelected)
       }
       if (config.ssrPath) {
         commit('updateView', { page: views[2] })
       }
+      if (initialSelected) {
+        commit('setSelectedConfigId', initialSelected.id)
+      }
+      if (config.lang) {
+        i18n.locale = config.lang
+      }
     },
     updateConfig ({ getters, commit }, targetConfig) {
       let index
-      if (targetConfig.configs && getters.selectedConfig) {
-        index = targetConfig.configs.findIndex(config => config.id === getters.selectedConfig.id)
+      if (targetConfig.configs && getters.activatedConfig) {
+        index = targetConfig.configs.findIndex(config => config.id === getters.activatedConfig.id)
       }
       const correctConfig = (index !== undefined && index > -1) ? { ...targetConfig, index } : targetConfig
       commit('updateConfig', [correctConfig, true])
@@ -185,52 +259,145 @@ export default new Vuex.Store({
       }
     },
     // 更新所有订阅服务器
-    updateSubscribes ({ state, dispatch }, updateSubscribes) {
+    async updateSubscribes ({ state, dispatch }, updateSubscribes) {
       // 要更新的订阅服务器
       updateSubscribes = updateSubscribes || state.appConfig.serverSubscribes
       // 累计更新节点数
       let updatedCount = 0
-      return Promise.all(updateSubscribes.map(subscribe => {
-        return somePromise([request(subscribe.URL, true), fetch(subscribe.URL).then(res => res.text())]).then(res => {
-          const [valid, configs] = isSubscribeContentValid(res)
-          if (valid) {
-            const group = configs[0].group
-            // 更新的组下面原来的配置
-            const groupedConfigs = []
-            // 不在更新组里面的配置
-            const notInGroupConfigs = []
-            state.appConfig.configs.forEach(config => {
-              if (config.group === group) {
-                groupedConfigs.push(config)
+      const updatedArr = []
+      const failedArr = []
+      await Promise.all(updateSubscribes.map(async subscribe => {
+        try {
+          const res = await fetch(subscribe.URL)
+          updatedArr.push(subscribe.URL)
+          const textContent = await res.text()
+          const [groupCount, groupConfigs] = isSubscribeContentValid(textContent)
+          if (groupCount > 0) {
+            for (const groupName in groupConfigs) {
+              const configs = groupConfigs[groupName]
+              const group = configs[0].group
+              // 更新的组下面原来的配置
+              const groupedConfigs = []
+              // 不在更新组里面的配置
+              const notInGroupConfigs = []
+              state.appConfig.configs.forEach(config => {
+                if (config.group === group) {
+                  groupedConfigs.push(config)
+                } else {
+                  notInGroupConfigs.push(config)
+                }
+              })
+              // 原组中没有发生变更的节点
+              const oldNotChangedConfigs = groupedConfigs.filter(config => {
+                const i = configs.findIndex(_config => isConfigEqual(config, _config))
+                if (i > -1) {
+                  // 未发生实际更新的节点删除
+                  configs.splice(i, 1)
+                  return true
+                }
+                return false
+              })
+              if (configs.length) {
+                dispatch('updateConfigs', oldNotChangedConfigs.concat(configs).concat(notInGroupConfigs))
+                updatedCount += configs.length
               } else {
-                notInGroupConfigs.push(config)
+                console.log('订阅节点并未发生变更')
               }
-            })
-            // 原组中没有发生变更的节点
-            const oldNotChangedConfigs = groupedConfigs.filter(config => {
-              const i = configs.findIndex(_config => isConfigEqual(config, _config))
-              if (i > -1) {
-                // 未发生实际更新的节点删除
-                configs.splice(i, 1)
-                return true
-              }
-              return false
-            })
-            if (configs.length) {
-              dispatch('updateConfigs', oldNotChangedConfigs.concat(configs).concat(notInGroupConfigs))
-              updatedCount += configs.length
-            } else {
-              console.log('订阅节点并未发生变更')
             }
           }
-        })
-      })).then(() => {
-        return updatedCount
-      })
+        } catch (error) {
+          failedArr.push(subscribe.URL)
+        }
+      }))
+      return { updatedCount, updatedArr, failedArr }
+    },
+    removeEditingNode (context) {
+      const clone = context.state.appConfig.configs.slice()
+      const index = clone.findIndex(
+        config => config.id === context.state.editingConfig.id
+      )
+      clone.splice(index, 1)
+      context.dispatch('updateConfigs', clone)
+      const next = clone[index]
+      const prev = clone[index - 1]
+      let id = next ? next.id : prev ? prev.id : ''
+      context.commit('setSelectedConfigId', id)
+    },
+    renameEditingGroup (context) {
+      if (context.state.editingGroup.editingTitle !== context.state.editingGroup.title) {
+        const copy = context.state.appConfig.configs.slice()
+        let searchTitle = context.state.editingGroup.title === '$ungrouped$' ? '' : context.state.editingGroup.title
+        for (let index = 0; index < copy.length; index++) {
+          const config = copy[index]
+          if (config.group === searchTitle) {
+            copy.splice(index, 1, Object.assign({}, clone(config, true), { group: context.state.editingGroup.editingTitle }))
+          }
+        }
+        context.dispatch('updateConfigs', copy)
+        context.commit('updateEditingGroup', { updated: true, title: context.state.editingGroup.editingTitle })
+      }
+    },
+    saveEditingNode (context) {
+      if (context.getters.isEditingConfigUpdated) {
+        const copy = context.state.appConfig.configs.slice()
+        const index = copy.findIndex(
+          config => config.id === context.state.editingConfig.id
+        )
+        if (index >= 0) {
+          copy.splice(index, 1)
+        }
+        copy.splice(index, 0, clone(context.state.editingConfig))
+        context.commit('updateEditingBak')
+        context.dispatch('updateConfigs', copy)
+      }
+    },
+    removeEditingGroup (context) {
+      let title = context.state.editingGroup.title
+      const clone = context.state.appConfig.configs.slice()
+      if (title === '$ungrouped$') {
+        title = ''
+      }
+      context.dispatch('updateConfigs', clone.filter(config => config.group !== title))
+      context.commit('setSelectedConfigId', (context.state.selectedConfig && context.state.selectedConfig.id) || '')
+      context.commit('updateEditingGroup', { show: false, title: '' })
+    },
+    newConfig (context) {
+      let newConfig = defaultSSRConfig(context.getters.selectedConfigNode)
+      const clone = context.state.appConfig.configs.slice()
+      clone.push(newConfig)
+      context.dispatch('updateConfigs', clone)
+      context.dispatch('setSelected', newConfig.id)
+      context.commit('updateEditingGroup', { show: false, title: '' })
+    },
+    setSelected (context, id) {
+      context.commit('setSelectedConfigId', id)
+      context.commit('setEditingConfig', context.getters.selectedConfigNode)
+    },
+    newSubscription (context) {
+      context.commit('updateView', { page: 'Options', tab: 'subscribes', active: true })
     }
   },
   getters: {
-    selectedConfig: state => state.appConfig.configs[state.appConfig.index],
-    isEditingConfigUpdated: state => !isConfigEqual(state.editingConfigBak, state.editingConfig)
+    activatedConfig: (state) => state.appConfig.configs[state.appConfig.index],
+    isEditingConfigUpdated: (state) => !isConfigEqual(state.editingConfig, state.editingConfigBak),
+    configs: (state) => {
+      if (state.appConfig && state.appConfig.configs && state.appConfig.configs.length) {
+        return state.appConfig.configs.map(config => {
+          return cloneConfig(config)
+        })
+      }
+      return []
+    },
+    selectedConfigNode (state, getters) {
+      if (state.selection.selectedConfigId) {
+        return getters.configs.find(config => config.id === state.selection.selectedConfigId)
+      }
+      return defaultSSRConfig()
+    },
+    buttonState (state) {
+      let deleteEnabled = state.selection.selectedConfigId !== '' || (state.editingGroup && state.editingGroup.title && state.editingGroup.show)
+
+      return !deleteEnabled
+    }
   }
 })
